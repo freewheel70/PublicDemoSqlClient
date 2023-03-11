@@ -1,0 +1,54 @@
+# This workflow will build a .NET project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
+
+name: .NET
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest    
+
+    # Service containers to run with `runner-job`
+    services:
+      # Label used to access the service container
+      sqlserver:        
+        image: mcr.microsoft.com/azure-sql-edge
+        env:          
+          MSSQL_SA_PASSWORD: Admin123
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+        ports:          
+          - 1433:1433
+        options: >-
+          --name sqlpoc
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up DB and tables
+      run: ./setup-db.sh
+    # An alternative to set up DB and tables without a specific script file 
+    #- name: Copy set-up.sql
+    #  run: docker cp "./db/sql/setup.sql" sqlpoc:/setup.sql
+    #- name: Set up DB and tables
+    #  uses: nick-fields/retry@v2
+    #  with:
+    #    retry_wait_seconds: 2
+    #    timeout_seconds: 30
+    #    max_attempts: 10
+    #    command: docker exec sqlpoc /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Admin123 -i "/setup.sql"
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 6.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
